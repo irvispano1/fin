@@ -21,101 +21,91 @@ import re
 from tkinter.filedialog import askopenfilename
 
 class FinancialDataApp(EasyFrame):
-    """A GUI application for financial data analysis."""
+    """Stock Plotter"""
 
     def __init__(self):
-        """Sets up the window and widgets."""
-        EasyFrame.__init__(self, title="Financial Data Analysis", width=900, height=700)
         
-        # Initialize variables
+        EasyFrame.__init__(self, title="Stock Plotter", width=1000, height=700)
+        
+        
         self.df = None
         self.fig = None
         self.canvas = None
         self.ax = None
         self.canvas_widget = None
         
-        # Set up the UI layout
+       
         self.setupUI()
     
-    def setupUI(self):
-        """Sets up all the UI components."""
-        # Row 0: CSV file loading
-        self.addLabel("Financial Data Analysis", 0, 0, columnspan=3, 
-                     font=("Arial", 16, "bold"), background="lightgray")
+    def setupUI(self): 
+        self.addButton("Enter CSV File", 1, 0, command=self.load_csv)        
         
-        # Row 1: Load CSV button
-        self.addButton("Load CSV", 1, 0, command=self.loadCSV)
-        
-        # Row 2: RIC Selection
-        self.addLabel("Select RIC:", 2, 0, sticky="E")
+        self.addLabel("Select RIC:", 2, 0)
         self.ricCombo = self.addCombobox("", ["Select a RIC..."], 2, 1)
         
-        # Row 3: Start Date
-        self.addLabel("Start Date (dd/mm/yyyy):", 3, 0, sticky="E")
+        
+        self.addLabel("Start Date (dd/mm/yyyy):", 3, 0)
         self.startDateField = self.addTextField("", 3, 1)
         
-        # Row 4: End Date
-        self.addLabel("End Date (dd/mm/yyyy):", 4, 0, sticky="E")
+        
+        self.addLabel("End Date (dd/mm/yyyy):", 4, 0)
         self.endDateField = self.addTextField("", 4, 1)
         
-        # Row 5: Action buttons
-        self.addButton("Plot", 5, 0, command=self.plotData)
-        self.addButton("Calculate Return", 5, 1, command=self.calculateReturn)
-        self.addButton("Calculate Std Dev", 5, 2, command=self.calculateStdDev)
         
-        # Row 6: Clear buttons
-        self.addButton("Clear All", 6, 0, command=self.clearAll)
-        self.addButton("Clear Plot", 6, 1, command=self.clearPlot)
+        self.addButton("Plot", 5, 1, command=self.plot_data)
+        self.addButton("Clear All", 5, 2, command=self.clear_all)
+        self.plotPanel = self.addPanel(7, 0, rowspan=4, columnspan=2, background="white")
+        self.addButton("Calculate Return", 10, 1, command=self.calculate_return)
+        self.addButton("Calculate Std Dev", 10, 2, command=self.calculate_std_dev)
         
-        # Row 7-12: Plot area
-        self.plotPanel = self.addPanel(7, 0, rowspan=5, columnspan=3, background="white")
         
-    def loadCSV(self):
-        """Loads a CSV file selected by the user and populates the RIC dropdown."""
-        try:
-            # Open file dialog for the user to select a CSV file
+        self.addButton("Clear Plot", 6, 1, command=self.clear_plot)
+        
+        
+        
+    def load_csv(self):        
+        try:            
             file_path = askopenfilename(
                 title="Select CSV File",
                 filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")]
             )
             
-            # If user cancels the dialog, file_path will be empty
+           
             if not file_path:
                 return
                 
-            self.df = pd.read_csv(file_path)
-            
-            # Convert the date column to datetime format
+            self.df = pd.read_csv(file_path)           
+
             self.df['Date'] = pd.to_datetime(self.df['Dates'], format='%d/%m/%Y')
             
-            # Set the date as index
+            
             self.df.set_index('Date', inplace=True)
             
-            # Get RIC codes (column headers excluding Date)
+            
             ric_codes = list(self.df.columns)
             
-            # Update the RIC combobox
+            # Update the RIC 
             self.ricCombo["values"] = ric_codes
             
             messagebox.showinfo("Success", "CSV file loaded successfully!")
         except FileNotFoundError:
-            messagebox.showerror("Error", "CSV file not found.")
+            messagebox.showerror("Error", "CSV file Not Found.")
         except Exception as e:
-            messagebox.showerror("Error", f"Error loading CSV file: {str(e)}")
+            messagebox.showerror("Error", f"Error with CSV file: {str(e)}")
     
-    def validateInputs(self):
-        """Validates user inputs and returns processed dates if valid."""
+    def validate_input(self):
+        
         if self.df is None:
             messagebox.showerror("Error", "Please load a CSV file first.")
             return None
         
-        # Get selected RIC
+        
         selected_ric = self.ricCombo.getText()
         if not selected_ric:
             messagebox.showerror("Error", "Please fill in all fields.")
             return None
         
-        # Get and validate dates
+        
         start_date_str = self.startDateField.getText().strip()
         end_date_str = self.endDateField.getText().strip()
         
@@ -123,26 +113,26 @@ class FinancialDataApp(EasyFrame):
             messagebox.showerror("Error", "Please fill in all fields.")
             return None
         
-        # Check date format using regex
+        
         date_pattern = r'^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/\d{4}$'
         if not re.match(date_pattern, start_date_str) or not re.match(date_pattern, end_date_str):
             messagebox.showerror("Error", "Incorrect date format. Please use dd/mm/yyyy.")
             return None
         
         try:
-            # Convert to datetime objects
+            
             start_date = datetime.strptime(start_date_str, "%d/%m/%Y")
             end_date = datetime.strptime(end_date_str, "%d/%m/%Y")
             
-            # Check if start date is after end date
+            
             if start_date >= end_date:
                 if start_date == end_date:
-                    messagebox.showerror("Error", "Start date cannot be equal to end date.")
+                    messagebox.showerror("Error", "Start date and end date cannot be the same.")
                 else:
-                    messagebox.showerror("Error", "Start date cannot be after end date.")
+                    messagebox.showerror("Error", "Start date must be earlier date than end date.")
                 return None
             
-            # Check if dates are within range of data
+            
             min_date = self.df.index.min()
             max_date = self.df.index.max()
             
@@ -160,97 +150,97 @@ class FinancialDataApp(EasyFrame):
             messagebox.showerror("Error", "Invalid date format. Please use dd/mm/yyyy.")
             return None
             
-    def plotData(self):
-        """Plots the selected RIC data between the specified dates."""
-        validation_result = self.validateInputs()
+    def plot_data(self):
+        
+        validation_result = self.validate_input()
         if validation_result is None:
             return
             
         selected_ric, start_date, end_date = validation_result
         
-        # Filter data based on date range
+        
         filtered_data = self.df.loc[start_date:end_date, selected_ric]
         
-        # Clear existing plot if any
-        self.clearPlot()
         
-        # Create a new figure and canvas
+        self.clear_plot()
+        
+        
         self.fig = Figure(figsize=(7, 4), dpi=100)
         self.ax = self.fig.add_subplot(111)
         
-        # Plot the data
+        
         self.ax.plot(filtered_data.index, filtered_data, 'b-')
         self.ax.set_title(f"{selected_ric} Stock Price")
         self.ax.set_xlabel("Date")
         self.ax.set_ylabel("Price")
         self.ax.grid(True)
         
-        # Rotate date labels for better readability
+        
         plt.setp(self.ax.get_xticklabels(), rotation=45, ha='right')
         
-        # Adjust layout
+        
         self.fig.tight_layout()
         
-        # Create canvas widget if it doesn't exist
+        
         if self.canvas_widget is None:
-            # Create a canvas for the plot
+            
             self.canvas = FigureCanvasTkAgg(self.fig, master=self.plotPanel)
             self.canvas_widget = self.canvas.get_tk_widget()
             self.canvas_widget.pack(fill=tk.BOTH, expand=True)
         else:
-            # Update the existing canvas
+            
             self.canvas.figure = self.fig
         
-        # Draw the plot
+        
         self.canvas.draw()
     
-    def calculateReturn(self):
-        """Calculates and displays the return for the selected date range."""
-        validation_result = self.validateInputs()
+    def calculate_return(self):
+        
+        validation_result = self.validate_input()
         if validation_result is None:
             return
             
         selected_ric, start_date, end_date = validation_result
         
-        # Filter data based on date range
+        
         filtered_data = self.df.loc[start_date:end_date, selected_ric]
         
-        # Calculate return as percentage
+        
         start_price = filtered_data.iloc[0]
         end_price = filtered_data.iloc[-1]
         return_value = ((end_price - start_price) / start_price) * 100
         
-        # Display result
-        messagebox.showinfo("Return Calculation", 
-                           f"Return for {selected_ric} from {start_date.strftime('%d/%m/%Y')} to {end_date.strftime('%d/%m/%Y')}: {return_value:.2f}%")
+        
+        messagebox.showinfo("Simple Percentage Return", 
+                           f"Simple Percentage Return from {start_date.strftime('%d/%m/%Y')} to {end_date.strftime('%d/%m/%Y')}: {return_value:.2f}%")
     
-    def calculateStdDev(self):
-        """Calculates and displays the standard deviation for the selected date range."""
-        validation_result = self.validateInputs()
+    def calculate_std_dev(self):
+        
+        validation_result = self.validate_input()
         if validation_result is None:
             return
             
         selected_ric, start_date, end_date = validation_result
         
-        # Filter data based on date range
+        
         filtered_data = self.df.loc[start_date:end_date, selected_ric]
         
-        # Calculate standard deviation
+        
         std_dev = np.std(filtered_data)
         
-        # Display result
+        
         messagebox.showinfo("Standard Deviation", 
-                           f"Standard Deviation for {selected_ric} from {start_date.strftime('%d/%m/%Y')} to {end_date.strftime('%d/%m/%Y')}: {std_dev:.4f}")
+                           f"Standard Deviation for {selected_ric} prices from {start_date.strftime('%d/%m/%Y')} to {end_date.strftime('%d/%m/%Y')}: {std_dev:.4f}")
     
-    def clearAll(self):
-        """Clears all inputs and resets the dropdown."""
+    def clear_all(self):
+        
         self.startDateField.setText("")
         self.endDateField.setText("")
         self.ricCombo.setText("")
-        self.clearPlot()
+        self.clear_plot()
     
-    def clearPlot(self):
-        """Clears the plot area."""
+    def clear_plot(self):
+        
         if self.canvas_widget is not None:
             self.canvas_widget.pack_forget()
             self.canvas_widget = None
@@ -259,7 +249,7 @@ class FinancialDataApp(EasyFrame):
             self.canvas = None
 
 def main():
-    """Runs the financial data application."""
+    
     FinancialDataApp().mainloop()
 
 if __name__ == "__main__":
